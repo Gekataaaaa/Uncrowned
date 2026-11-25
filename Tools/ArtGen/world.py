@@ -2,15 +2,16 @@
 World art in the knight's style: chunky chibi pixels, dark #272833 outline around every part,
 3-tone ramps lit from the top-left, lavender / crimson / gold accents.
 
-Exports every piece separately at native size (1 px = 1 game pixel) into Art/Concepts/:
+Exports every piece separately at native size (1 px = 1 game pixel) into Assets/Resources/Art/
+(the game loads them from there; files are overwritten in place so their .meta stay):
   Backgrounds/<stage>/  parallax layers 0_sky .. 4_fg (+ 5_lights), ground_tile; Backgrounds/Props/
   Mobs/                 one sprite per enemy, facing LEFT, feet on the bottom row
   Town/                 layers + Objects/ (houses, forge, campfire frames, lanterns, NPCs)
   WorldMap/             layers + Icons/ (nodes per state, hero marker, path dots, tooltip panel)
   Transitions/          stage gate, crown mask, CrownIris/ frames, title card, 3x5 font
-  Previews/             the same pieces put together (x4), mobs sheet, transition gif
+and the composed previews (x4), mobs sheet and transition gif into Art/Previews/.
 
-Run:  python Tools/ArtGen/world.py   (wipes and rewrites Art/Concepts)
+Run:  python Tools/ArtGen/world.py, then python Tools/ArtGen/sync_art.py to refresh Art/InGame.
 """
 import math
 import os
@@ -20,7 +21,8 @@ from pixel import Canvas, hexc
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HERO = os.path.join(ROOT, "Assets", "Resources", "Art", "Hero")
-OUT_DIR = os.path.join(ROOT, "Art", "Concepts")
+OUT_DIR = os.path.join(ROOT, "Assets", "Resources", "Art")   # what the game loads
+PREVIEW_DIR = os.path.join(ROOT, "Art")                       # Art/Previews: composed images to look at
 
 W, H = 320, 180
 SCALE = 4
@@ -432,7 +434,7 @@ def build_mobs():
 # ---------------------------------------------------------------- output
 
 def save(img, rel, scale=1):
-    path = os.path.join(OUT_DIR, rel)
+    path = os.path.join(PREVIEW_DIR if rel.startswith("Previews/") else OUT_DIR, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if scale != 1:
         img = img.resize((img.width * scale, img.height * scale), Image.NEAREST)
@@ -1175,7 +1177,7 @@ def transition_gif(pit, hollows):
     frames.append(nxt)
     durs.append(1500)
     big = [f.convert("RGB").resize((W * 3, H * 3), Image.NEAREST) for f in frames]
-    path = os.path.join(OUT_DIR, "Previews", "transition.gif")
+    path = os.path.join(PREVIEW_DIR, "Previews", "transition.gif")
     big[0].save(path, save_all=True, append_images=big[1:], duration=durs, loop=0, optimize=True)
     keys = [frames[6], frames[14 + 5], frames[14 + 9 + 9], frames[14 + 9 + 10 + 4]]
     strip = Image.new("RGBA", (W * 2 + 6, H * 2 + 6), hexc("#0e0b14"))
@@ -1215,9 +1217,6 @@ def export_sprite(spr, rel):
 
 
 def main():
-    if os.path.isdir(OUT_DIR):
-        import shutil
-        shutil.rmtree(OUT_DIR)
     build_mobs()
 
     # Mobs: one sprite each, native size, facing left, feet on the bottom row.
@@ -1295,7 +1294,7 @@ def main():
     save(map_preview(wm), "Previews/world_map.png", SCALE)
     mobs_sheet()
     transition_gif(pit, hollows)
-    print("wrote", OUT_DIR)
+    print("wrote", OUT_DIR, "and", os.path.join(PREVIEW_DIR, "Previews"))
 
 
 if __name__ == "__main__":

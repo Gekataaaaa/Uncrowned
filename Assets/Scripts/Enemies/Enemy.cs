@@ -6,7 +6,10 @@ namespace Uncrowned.Enemies
 {
     public enum EnemyKind { Grunt, Brute, Boss }
 
-    /// <summary>Side-view melee enemy: walks to the player, winds up (turns yellow), then hits if still in reach.</summary>
+    /// <summary>
+    /// Side-view melee enemy: walks to the player, winds up (turns yellow), then hits if still in reach.
+    /// Drawn with a sprite from Resources/Art/Mobs (they face left and are flipped toward the player).
+    /// </summary>
     [RequireComponent(typeof(Rigidbody2D), typeof(Health))]
     public class Enemy : MonoBehaviour
     {
@@ -27,6 +30,8 @@ namespace Uncrowned.Enemies
 
         SpriteRenderer bodySr;
         Color baseColor;
+        bool flying;
+        float bodyY;
         Rigidbody2D rb;
         Health target;
 
@@ -35,32 +40,26 @@ namespace Uncrowned.Enemies
         float cooldownTimer;
         float knockX;
 
-        public static Enemy Create(EnemyKind kind, Vector2 pos, Health target)
+        /// <param name="look">Sprite name in Resources/Art/Mobs. Its size sets the collider.</param>
+        /// <param name="flying">Hovers at its spawn height instead of falling to the ground.</param>
+        public static Enemy Create(EnemyKind kind, Vector2 pos, Health target, string look, bool flying = false)
         {
-            var go = new GameObject(kind.ToString());
+            var go = new GameObject(kind + " " + look);
             go.layer = Arena.CharacterLayer;
             go.transform.position = pos;
 
-            Vector2 size = kind switch
-            {
-                EnemyKind.Brute => new Vector2(1.4f, 1.9f),
-                EnemyKind.Boss => new Vector2(2.4f, 3.2f),
-                _ => new Vector2(0.9f, 1.4f)
-            };
-            Color color = kind switch
-            {
-                EnemyKind.Brute => new Color(0.55f, 0.15f, 0.2f),
-                EnemyKind.Boss => new Color(0.35f, 0.1f, 0.4f),
-                _ => new Color(0.75f, 0.3f, 0.25f)
-            };
+            var art = ArtKit.Sprite("Mobs/" + look);
+            Vector2 px = art != null ? art.rect.size : new Vector2(16, 24);
+            // The outline and the empty top of a sprite should not block hits: the collider is a bit smaller.
+            var size = new Vector2(px.x * 0.6f, px.y * 0.8f) / ArtKit.PPU;
 
             var body = new GameObject("Body");
             body.transform.SetParent(go.transform, false);
-            body.transform.localScale = new Vector3(size.x, size.y, 1);
-            var sr = SpriteFactory.AddRenderer(body, SpriteFactory.Square, color, 5);
+            body.transform.localPosition = new Vector3(0, -size.y / 2f, 0);   // sprite pivot is at the feet
+            var sr = SpriteFactory.AddRenderer(body, art, Color.white, 5);
 
             var rb = go.AddComponent<Rigidbody2D>();
-            rb.gravityScale = 3f;
+            rb.gravityScale = flying ? 0f : 3f;
             rb.freezeRotation = true;
             rb.mass = kind == EnemyKind.Grunt ? 1f : 4f;
             var col = go.AddComponent<BoxCollider2D>();
@@ -73,6 +72,10 @@ namespace Uncrowned.Enemies
             var e = go.AddComponent<Enemy>();
             e.Kind = kind;
             e.target = target;
+            e.flying = flying;
+            e.bodyY = body.transform.localPosition.y;
+            if (look == "eyeless_sovereign")
+                go.AddComponent<OrbitingEyes>().center = new Vector2(0, e.bodyY + 2.75f);
             if (kind == EnemyKind.Brute)
             {
                 e.speed = 1.7f; e.damage = 18f; e.reach = 1.8f; e.windup = 0.7f; e.poise = 0.4f;
@@ -130,6 +133,9 @@ namespace Uncrowned.Enemies
             if (target == null || target.IsDead) return;
 
             Vector2 to = target.transform.position - transform.position;
+            if (Mathf.Abs(to.x) > 0.1f) bodySr.flipX = to.x > 0;   // sprites face left
+            if (flying)
+                bodySr.transform.localPosition = new Vector3(0, bodyY + Mathf.Sin(Time.time * 3f + transform.position.x) * 0.15f, 0);
             if (!aggro && Mathf.Abs(to.x) < aggroRange) aggro = true;
             if (!aggro) return;
             bool inReach = Mathf.Abs(to.x) <= reach && Mathf.Abs(to.y) < 2f;

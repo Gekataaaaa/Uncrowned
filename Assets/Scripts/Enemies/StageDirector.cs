@@ -18,7 +18,9 @@ namespace Uncrowned.Enemies
 
         public Health player;
         public string stageId = "1-1";
-        public string bossName = "The Jailer";
+        /// <summary>Who lives on this stage; set before Start (defaults to the stage id's theme).</summary>
+        [System.NonSerialized] public StageTheme theme;
+        public string bossName => theme.bossName;
 
         [Header("Layout")]
         public int minEnemies = 50;
@@ -46,6 +48,7 @@ namespace Uncrowned.Enemies
         /// <summary>Plans the group layout. Call before building the level so its length is known.</summary>
         public void Init()
         {
+            theme ??= StageTheme.For(stageId);
             var cam = Camera.main;
             ScreenWidth = cam.orthographicSize * 2f * cam.aspect;
             float spacing = ScreenWidth * groupSpacingScreens;
@@ -74,10 +77,17 @@ namespace Uncrowned.Enemies
         void Start()
         {
             if (ScreenWidth <= 0) Init();
+            var rng = new System.Random(seed + 1);
             foreach (var g in groups)
             {
-                for (int i = 0; i < g.grunts; i++) roadEnemies.Add(Enemy.Create(EnemyKind.Grunt, new Vector2(g.x + i * 1.3f, 1.5f), player));
-                for (int i = 0; i < g.brutes; i++) roadEnemies.Add(Enemy.Create(EnemyKind.Brute, new Vector2(g.x + g.grunts * 1.3f + 1f + i * 1.8f, 2f), player));
+                for (int i = 0; i < g.grunts; i++)
+                {
+                    string look = theme.grunts[rng.Next(theme.grunts.Length)];
+                    bool flies = look == StageTheme.Flyer;
+                    roadEnemies.Add(Enemy.Create(EnemyKind.Grunt, new Vector2(g.x + i * 1.3f, flies ? 2.4f : 1.5f), player, look, flies));
+                }
+                for (int i = 0; i < g.brutes; i++)
+                    roadEnemies.Add(Enemy.Create(EnemyKind.Brute, new Vector2(g.x + g.grunts * 1.3f + 1f + i * 1.8f, 2f), player, theme.brute));
             }
         }
 
@@ -92,7 +102,7 @@ namespace Uncrowned.Enemies
                     {
                         Current = State.BossFight;
                         Arena.MinX = BossArenaStart; // the gate closes behind the player
-                        Boss = Enemy.Create(EnemyKind.Boss, new Vector2(BossArenaEnd - 4f, 3f), player);
+                        Boss = Enemy.Create(EnemyKind.Boss, new Vector2(BossArenaEnd - 4f, 3f), player, theme.boss);
                         Boss.aggroRange = 999f;
                         GameFeel.Shake(0.25f, 0.4f);
                     }

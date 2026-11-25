@@ -29,7 +29,7 @@ namespace Uncrowned.Core
                 description = "Where the kingdom throws what it fears. You wake here, bruised and barefoot, with a rusted blade at your side." },
             new() { id = "town", title = "Lastlight", kind = NodeKind.Town, pos = new(0.3f, 0.08f), requires = "1-1", playable = true,
                 description = "A hidden refuge in the depths of the Abyss. A fire, a forge, and people who don't ask about your eyes." },
-            new() { id = "1-2", title = "1-2  Weeping Hollows", kind = NodeKind.Stage, pos = new(0.44f, 0.17f), requires = "1-1",
+            new() { id = "1-2", title = "1-2  Weeping Hollows", kind = NodeKind.Stage, pos = new(0.44f, 0.17f), requires = "1-1", playable = true,
                 description = "Caverns that cry in borrowed voices. The Sentinels keep their silent watch." },
             new() { id = "1-3", title = "1-3  Chasm of Echoes", kind = NodeKind.Stage, pos = new(0.24f, 0.27f), requires = "1-2",
                 description = "Every step answers back. Something large moves below." },

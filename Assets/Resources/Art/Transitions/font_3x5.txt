@@ -1,0 +1,2 @@
+3x5 glyphs, 4 px apart (3 + 1 gap), left to right in this order:
+ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.':!, 

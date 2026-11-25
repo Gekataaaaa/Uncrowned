@@ -1,7 +1,6 @@
 using Uncrowned.Core;
 using Uncrowned.UI;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Uncrowned.Scenes
 {
@@ -23,7 +22,12 @@ namespace Uncrowned.Scenes
 
         void Start()
         {
-            MenuCamera.Setup(new Color(0.05f, 0.03f, 0.08f));
+            var cam = MenuCamera.Setup(new Color(0.05f, 0.03f, 0.08f));
+            // The pit the prince wakes up in, behind the title.
+            cam.orthographicSize = ArtKit.CameraSize;
+            cam.transform.position = new Vector3(0, ArtKit.CameraY, -10);
+            ArtKit.Backdrop("Backgrounds/1-1_PitOfExiles", cam);
+            ArtKit.GroundStrip(null, "Backgrounds/1-1_PitOfExiles/ground_tile", -15f, 15f);
             var root = UiKit.Canvas("Main Menu");
 
             // Faint violet/crimson glow behind the title, a nod to the two eyes.
@@ -40,7 +44,7 @@ namespace Uncrowned.Scenes
 
             UiKit.Button(m, "New Game", new Vector2(0.5f, 0.5f), new Vector2(0, 20), new Vector2(380, 70), ShowPrologue);
             var cont = UiKit.Button(m, "Continue", new Vector2(0.5f, 0.5f), new Vector2(0, -70), new Vector2(380, 70),
-                () => SceneManager.LoadScene(GameState.WorldMapScene));
+                () => SceneTransition.Load(GameState.WorldMapScene));
             cont.interactable = GameState.HasSave;
             UiKit.Button(m, "Quit", new Vector2(0.5f, 0.5f), new Vector2(0, -160), new Vector2(380, 70), Quit);
             UiKit.Text(m, "prototype build", 18, new Vector2(1, 0), new Vector2(-120, 30), new Vector2(220, 30), color: new Color(1, 1, 1, 0.3f));
@@ -63,7 +67,7 @@ namespace Uncrowned.Scenes
         void Begin()
         {
             GameState.NewGame();
-            SceneManager.LoadScene(GameState.WorldMapScene);
+            SceneTransition.Load(GameState.WorldMapScene);
         }
 
         static void Quit()
@@ -87,7 +91,7 @@ namespace Uncrowned.Scenes
     /// <summary>Camera for UI-only scenes.</summary>
     public static class MenuCamera
     {
-        public static void Setup(Color background)
+        public static Camera Setup(Color background)
         {
             var cam = Camera.main;
             if (cam == null)
@@ -98,6 +102,7 @@ namespace Uncrowned.Scenes
             cam.orthographic = true;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = background;
+            return cam;
         }
     }
 }

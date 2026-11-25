@@ -5,22 +5,29 @@ using UnityEngine.InputSystem;
 
 namespace Uncrowned.Player
 {
-    /// <summary>WASD movement and mouse aim. Combat code drives speed multipliers and forced moves (dash).</summary>
+    /// <summary>Side-view movement: A/D to walk, Space to jump. Facing follows the last walk direction.</summary>
     [RequireComponent(typeof(Rigidbody2D), typeof(Health))]
     public class PlayerController : MonoBehaviour
     {
-        public float speed = 5f;
+        public float speed = 5.5f;
+        public float jumpSpeed = 13f;
 
-        public Vector2 Aim { get; private set; } = Vector2.right;
+        public int Facing { get; private set; } = 1;
+        public Vector2 Aim => new Vector2(Facing, 0);
+        public bool Grounded { get; private set; }
+
         /// <summary>Multiplier set by combat (slower while swinging, 0 while rooted).</summary>
         public float SpeedMultiplier { get; set; } = 1f;
         /// <summary>When set, overrides input movement (used by dash).</summary>
         public Vector2? ForcedVelocity { get; set; }
+        /// <summary>Combat locks facing mid-swing so attacks don't flip direction.</summary>
+        public bool FacingLocked { get; set; }
 
         Rigidbody2D rb;
         Health health;
-        Transform sword;
-        Vector2 input;
+        Transform visual;
+        float moveX;
+        bool jumpQueued;
 
         void Awake()
         {
@@ -30,44 +37,43 @@ namespace Uncrowned.Player
 
         void Start()
         {
-            sword = transform.Find("Sword");
+            visual = transform.Find("Visual");
         }
 
         void Update()
         {
-            if (health.IsDead) { input = Vector2.zero; return; }
+            moveX = 0;
+            if (health.IsDead) return;
 
             var kb = Keyboard.current;
-            input = Vector2.zero;
-            if (kb != null)
-            {
-                if (kb.wKey.isPressed) input.y += 1;
-                if (kb.sKey.isPressed) input.y -= 1;
-                if (kb.aKey.isPressed) input.x -= 1;
-                if (kb.dKey.isPressed) input.x += 1;
-            }
-            input = Vector2.ClampMagnitude(input, 1f);
+            if (kb == null) return;
+            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) moveX -= 1;
+            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) moveX += 1;
+            if ((kb.spaceKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame) && Grounded && SpeedMultiplier > 0) jumpQueued = true;
 
-            var mouse = Mouse.current;
-            var cam = Camera.main;
-            if (mouse != null && cam != null)
-            {
-                Vector2 world = cam.ScreenToWorldPoint(mouse.position.ReadValue());
-                Vector2 dir = world - (Vector2)transform.position;
-                if (dir.sqrMagnitude > 0.01f) Aim = dir.normalized;
-            }
-
-            if (sword != null)
-            {
-                float angle = Mathf.Atan2(Aim.y, Aim.x) * Mathf.Rad2Deg;
-                sword.localRotation = Quaternion.Euler(0, 0, angle);
-            }
+            if (!FacingLocked && moveX != 0) Facing = moveX > 0 ? 1 : -1;
+            if (visual != null) visual.localScale = new Vector3(Facing, 1, 1);
         }
 
         void FixedUpdate()
         {
-            rb.linearVelocity = ForcedVelocity ?? input * (speed * SpeedMultiplier);
-            rb.position = Arena.Clamp(rb.position);
+            var hit = Physics2D.Raycast(rb.position, Vector2.down, 0.85f, 1 << 0);
+            Grounded = hit.collider != null && rb.linearVelocity.y <= 0.1f;
+
+            if (ForcedVelocity.HasValue)
+            {
+                rb.linearVelocity = ForcedVelocity.Value;
+            }
+            else
+            {
+                float vy = rb.linearVelocity.y;
+                if (jumpQueued) { vy = jumpSpeed; jumpQueued = false; }
+                rb.linearVelocity = new Vector2(moveX * speed * SpeedMultiplier, vy);
+            }
+
+            var p = rb.position;
+            float cx = Arena.ClampX(p.x);
+            if (cx != p.x) rb.position = new Vector2(cx, p.y);
         }
     }
 }

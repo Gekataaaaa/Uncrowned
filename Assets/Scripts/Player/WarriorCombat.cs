@@ -56,7 +56,7 @@ namespace Uncrowned.Player
 
         PlayerController controller;
         Health health;
-        Collider2D bodyCollider;
+        Rigidbody2D rb;
 
         readonly float[] cooldown = new float[5];
         readonly float[] cooldownMax = new float[5];
@@ -73,7 +73,7 @@ namespace Uncrowned.Player
             controller = GetComponent<PlayerController>();
             Valor = GetComponent<Valor>();
             health = GetComponent<Health>();
-            bodyCollider = GetComponent<Collider2D>();
+            rb = GetComponent<Rigidbody2D>();
             cooldownMax[(int)Ability.Dash] = dashCooldown;
             cooldownMax[(int)Ability.WideSwing] = wideCooldown;
             cooldownMax[(int)Ability.WarCry] = warCryCooldown;
@@ -103,6 +103,7 @@ namespace Uncrowned.Player
             }
 
             if (!ulting) controller.SpeedMultiplier = busy > 0 ? 0.35f : 1f;
+            controller.FacingLocked = busy > 0 || ulting;
             if (health.IsDead || ulting) return;
 
             var kb = Keyboard.current;
@@ -110,7 +111,7 @@ namespace Uncrowned.Player
             if (kb == null || mouse == null) return;
 
             if (kb.rKey.wasPressedThisFrame && Ready(Ability.Ultimate)) { StartCoroutine(Ultimate()); return; }
-            if (kb.spaceKey.wasPressedThisFrame && Ready(Ability.Dash)) { StartCoroutine(Dash()); return; }
+            if ((kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) && Ready(Ability.Dash)) { StartCoroutine(Dash()); return; }
             if (kb.qKey.wasPressedThisFrame && Ready(Ability.WarCry)) WarCry();
             if (busy > 0) return;
             if (mouse.rightButton.wasPressedThisFrame && Ready(Ability.WideSwing)) { WideSwing(); return; }
@@ -145,8 +146,10 @@ namespace Uncrowned.Player
 
         void WideSwing()
         {
-            int hits = Strike(controller.Aim, wideRange, 180f, wideDamage, 7f, 1);
+            // Hits both sides: the crowd-control swing.
+            int hits = Strike(controller.Aim, wideRange, 360f, wideDamage, 7f, 1);
             SpawnArcFx(controller.Aim, wideRange, new Color(0.7f, 0.9f, 1f, 0.85f));
+            SpawnArcFx(-controller.Aim, wideRange, new Color(0.7f, 0.9f, 1f, 0.85f));
             if (hits > 0) { GameFeel.HitStop(0.05f); GameFeel.Shake(0.12f, 0.12f); }
             busy = 0.35f / AttackSpeed;
             StartCooldown(Ability.WideSwing);
@@ -156,9 +159,9 @@ namespace Uncrowned.Player
         {
             StartCooldown(Ability.Dash);
             Vector2 dir = controller.Aim;
-            Vector2 start = transform.position;
+            float gravity = rb.gravityScale;
+            rb.gravityScale = 0f;
             health.Invulnerable = true;
-            bodyCollider.enabled = false;
             controller.ForcedVelocity = dir * (dashDistance / dashTime);
 
             var hitSet = new System.Collections.Generic.HashSet<Enemy>();
@@ -170,14 +173,15 @@ namespace Uncrowned.Player
                 {
                     if (!hitSet.Add(e)) continue;
                     e.Health.TakeDamage(dashDamage);
-                    e.Knockback(Vector2.Perpendicular(dir) * Mathf.Sign(Random.value - 0.5f) * 5f);
+                    e.Knockback(new Vector2(dir.x * 3f, 6f));
                 }
                 FadeAndDie.Spawn(SpriteFactory.Square, new Color(0.9f, 0.9f, 1f, 0.35f), transform.position, 0, 0.8f, 0.15f);
                 yield return null;
             }
 
             controller.ForcedVelocity = null;
-            bodyCollider.enabled = true;
+            rb.linearVelocity = new Vector2(dir.x * 2f, 0f);
+            rb.gravityScale = gravity;
             health.Invulnerable = false;
             if (hitSet.Count > 0) { Valor.Add(dashValor); GameFeel.Shake(0.08f, 0.08f); }
         }
@@ -201,7 +205,7 @@ namespace Uncrowned.Player
             foreach (var e in CombatUtil.EnemiesInArc(transform.position, Vector2.right, ultLaunchRadius, 360f))
             {
                 e.Health.TakeDamage(ultLaunchDamage);
-                e.KnockUp(1.0f);
+                e.KnockUp(12f, 0.9f);
                 Valor.Add(1);
             }
             FadeAndDie.Spawn(SpriteFactory.Ring, new Color(1f, 1f, 1f, 0.9f), transform.position, 0, ultLaunchRadius * 0.6f, 0.25f, 1.7f);
@@ -216,8 +220,9 @@ namespace Uncrowned.Player
             foreach (var e in CombatUtil.EnemiesInArc(transform.position, Vector2.right, ultSlamRadius, 360f))
             {
                 e.Health.TakeDamage(dmg, big: true);
-                Vector2 away = ((Vector2)(e.transform.position - transform.position)).normalized;
-                e.Knockback(away * (6f + charges), 0.4f);
+                // Slammed back down to the ground and away from the warrior.
+                float side = Mathf.Sign(e.transform.position.x - transform.position.x);
+                e.Knockback(new Vector2(side * (6f + charges), -14f), 0.5f);
             }
 
             var slamColor = full ? new Color(1f, 0.8f, 0.2f, 1f) : new Color(1f, 0.95f, 0.8f, 0.9f);
@@ -239,8 +244,8 @@ namespace Uncrowned.Player
             foreach (var e in targets.ToArray())
             {
                 e.Health.TakeDamage(damage);
-                Vector2 away = ((Vector2)(e.transform.position - transform.position)).normalized;
-                e.Knockback(away * knock);
+                float side = Mathf.Sign(e.transform.position.x - transform.position.x);
+                e.Knockback(new Vector2(side * knock, 0f));
                 Valor.Add(valorPerHit);
             }
             return count;

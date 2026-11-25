@@ -2,16 +2,18 @@ using UnityEngine;
 
 namespace Uncrowned.Core
 {
-    /// <summary>Rectangular play area. Everything that moves is clamped inside it.</summary>
+    /// <summary>
+    /// Horizontal limits of where characters may walk. A combat zone narrows them
+    /// to lock the player in until the wave is cleared.
+    /// </summary>
     public static class Arena
     {
-        public static Rect Bounds = new Rect(-15f, -10f, 30f, 20f);
+        public const int CharacterLayer = 8;
+        public const float GroundY = 0f;
 
-        public static Vector2 Clamp(Vector2 p, float margin = 0.5f)
-        {
-            return new Vector2(
-                Mathf.Clamp(p.x, Bounds.xMin + margin, Bounds.xMax - margin),
-                Mathf.Clamp(p.y, Bounds.yMin + margin, Bounds.yMax - margin));
-        }
+        public static float MinX;
+        public static float MaxX;
+
+        public static float ClampX(float x, float margin = 0.5f) => Mathf.Clamp(x, MinX + margin, MaxX - margin);
     }
 }

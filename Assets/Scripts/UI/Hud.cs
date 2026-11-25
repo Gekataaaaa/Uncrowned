@@ -12,7 +12,7 @@ namespace Uncrowned.UI
     {
         public Health player;
         public WarriorCombat combat;
-        public EnemySpawner spawner;
+        public StageDirector stage;
 
         Font font;
         Image hpFill;
@@ -25,7 +25,10 @@ namespace Uncrowned.UI
         Image warCryGlow;
 
         static readonly Ability[] Slots = { Ability.Combo, Ability.Dash, Ability.WideSwing, Ability.WarCry, Ability.Ultimate };
-        static readonly string[] Keys = { "ЛКМ", "Space", "ПКМ", "Q", "R" };
+        static readonly string[] Keys = { "ЛКМ", "Shift", "ПКМ", "Q", "R" };
+
+        Image bossBar;
+        GameObject bossBarRoot;
         static readonly string[] Names = { "Серия", "Рывок", "Взмах", "Клич", "Суд короны" };
 
         void Start()
@@ -82,7 +85,15 @@ namespace Uncrowned.UI
 
             waveText = MakeText(root, "Wave", 30, TextAnchor.UpperCenter, new Vector2(0.5f, 1), new Vector2(0, -50), new Vector2(600, 40));
             var help = MakeText(root, "Help", 18, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(240, -130), new Vector2(420, 200));
-            help.text = "WASD — движение, мышь — прицел\nЛКМ — серия ударов (3-й широкий)\nПКМ — широкий взмах\nSpace — рывок\nQ — боевой клич (Доблесть не сгорает)\nR — Суд короны (тратит всю Доблесть)";
+            help.text = "A / D — ходьба, Space — прыжок\nЛКМ — серия ударов (3-й мощный)\nПКМ — взмах в обе стороны\nShift — рывок вперёд\nQ — боевой клич (Доблесть не сгорает)\nR — Суд короны (тратит всю Доблесть)";
+
+            // Boss health bar, shown during the boss fight.
+            var bossBg = MakeImage(root, "Boss Bg", new Color(0.1f, 0.05f, 0.1f, 0.85f), new Vector2(0.5f, 1), new Vector2(0, -110), new Vector2(820, 26));
+            bossBar = MakeImage(bossBg.transform, "Boss Fill", new Color(0.6f, 0.2f, 0.7f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(812, 18));
+            bossBar.type = Image.Type.Filled;
+            bossBar.fillMethod = Image.FillMethod.Horizontal;
+            MakeText(bossBg.transform, "Boss Name", 20, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 28), new Vector2(820, 30)).text = "Павший король";
+            bossBarRoot = bossBg.gameObject;
             help.color = new Color(1, 1, 1, 0.6f);
             centerText = MakeText(root, "Center", 44, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 80), new Vector2(1000, 120));
         }
@@ -113,8 +124,18 @@ namespace Uncrowned.UI
                 cdTexts[i].text = rem > 0.05f && Slots[i] != Ability.Combo ? rem.ToString(rem < 1 ? "0.0" : "0") : "";
             }
 
-            waveText.text = spawner.Wave > 0 ? $"Волна {spawner.Wave}   ·   Врагов: {spawner.Alive}" : "Приготовься...";
-            centerText.text = player.IsDead ? $"Ты пал на волне {spawner.Wave}\nEnter — заново" : "";
+            bool bossFight = stage.Current == StageDirector.State.BossFight && stage.Boss != null;
+            bossBarRoot.SetActive(bossFight);
+            if (bossFight) bossBar.fillAmount = stage.Boss.Health.Current / stage.Boss.Health.max;
+
+            waveText.text = stage.Current switch
+            {
+                StageDirector.State.Road => $"Этап {stage.stageName}   ·   {Mathf.RoundToInt(stage.Progress * 100)}%",
+                StageDirector.State.BossFight => $"Этап {stage.stageName}   ·   БОСС",
+                _ => $"Этап {stage.stageName} пройден"
+            };
+            centerText.text = player.IsDead ? "Ты пал\nEnter — заново"
+                : stage.Current == StageDirector.State.Cleared ? "Этап пройден!\nEnter — заново" : "";
         }
 
         Image MakeImage(Transform parent, string name, Color color, Vector2 anchor, Vector2 pos, Vector2 size)

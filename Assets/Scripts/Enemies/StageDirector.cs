@@ -8,30 +8,32 @@ namespace Uncrowned.Enemies
     /// <summary>
     /// Linear stage, left to right. Enemy groups stand along the road and the camera scrolls freely.
     /// Only the boss arena (two screens wide) locks: once inside, the way back closes until the boss dies.
+    ///
+    /// Layout rules: at least `minEnemies` per stage, no more than `maxPerGroup` in one spot,
+    /// groups spaced `groupSpacingScreens` screens apart.
     /// </summary>
     public class StageDirector : MonoBehaviour
     {
         public enum State { Road, BossFight, Cleared }
 
         public Health player;
-        public string stageName = "1-1";
+        public string stageId = "1-1";
+        public string bossName = "The Jailer";
 
-        /// <summary>Groups placed along the road: x position and composition.</summary>
-        public readonly List<(float x, int grunts, int brutes)> groups = new()
-        {
-            (14f, 2, 0),
-            (26f, 3, 0),
-            (40f, 2, 1),
-            (54f, 4, 0),
-            (68f, 3, 1),
-            (82f, 2, 2),
-        };
+        [Header("Layout")]
+        public int minEnemies = 50;
+        public int maxPerGroup = 7;
+        public float groupSpacingScreens = 1.5f;
+        public int seed = 11;
 
-        public float bossArenaStart = 96f;
+        public float ScreenWidth { get; private set; }
+        public float BossArenaStart { get; private set; }
         public float BossArenaEnd { get; private set; }
         public State Current { get; private set; } = State.Road;
         public Enemy Boss { get; private set; }
+        public int TotalEnemies { get; private set; }
 
+        readonly List<(float x, int grunts, int brutes)> groups = new();
         readonly List<Enemy> roadEnemies = new();
 
         public int RoadEnemiesAlive
@@ -39,17 +41,39 @@ namespace Uncrowned.Enemies
             get { roadEnemies.RemoveAll(e => e == null); return roadEnemies.Count; }
         }
 
-        public float Progress => player == null ? 0 : Mathf.Clamp01(player.transform.position.x / bossArenaStart);
+        public float Progress => player == null || BossArenaStart <= 0 ? 0 : Mathf.Clamp01(player.transform.position.x / BossArenaStart);
 
-        void Start()
+        /// <summary>Plans the group layout. Call before building the level so its length is known.</summary>
+        public void Init()
         {
             var cam = Camera.main;
-            float screenW = cam.orthographicSize * 2f * cam.aspect;
-            BossArenaEnd = bossArenaStart + screenW * 2f;
+            ScreenWidth = cam.orthographicSize * 2f * cam.aspect;
+            float spacing = ScreenWidth * groupSpacingScreens;
+
+            var rng = new System.Random(seed);
+            groups.Clear();
+            int total = 0;
+            float x = ScreenWidth;   // first group one screen in
+            while (total < minEnemies)
+            {
+                int size = Mathf.Min(maxPerGroup, rng.Next(4, maxPerGroup + 1));
+                // Heavier enemies appear more often deeper in the stage.
+                int brutes = Mathf.Min(size - 1, rng.Next(0, 1 + groups.Count / 3));
+                groups.Add((x, size - brutes, brutes));
+                total += size;
+                x += spacing;
+            }
+            TotalEnemies = total;
+            BossArenaStart = x;
+            BossArenaEnd = BossArenaStart + ScreenWidth * 2f;
 
             Arena.MinX = 0f;
             Arena.MaxX = BossArenaEnd;
+        }
 
+        void Start()
+        {
+            if (ScreenWidth <= 0) Init();
             foreach (var g in groups)
             {
                 for (int i = 0; i < g.grunts; i++) roadEnemies.Add(Enemy.Create(EnemyKind.Grunt, new Vector2(g.x + i * 1.3f, 1.5f), player));
@@ -64,10 +88,10 @@ namespace Uncrowned.Enemies
             switch (Current)
             {
                 case State.Road:
-                    if (player.transform.position.x > bossArenaStart + 2f)
+                    if (player.transform.position.x > BossArenaStart + 2f)
                     {
                         Current = State.BossFight;
-                        Arena.MinX = bossArenaStart; // the gate closes behind the player
+                        Arena.MinX = BossArenaStart; // the gate closes behind the player
                         Boss = Enemy.Create(EnemyKind.Boss, new Vector2(BossArenaEnd - 4f, 3f), player);
                         Boss.aggroRange = 999f;
                         GameFeel.Shake(0.25f, 0.4f);
@@ -79,6 +103,7 @@ namespace Uncrowned.Enemies
                     {
                         Current = State.Cleared;
                         Arena.MinX = 0f;
+                        GameState.MarkCleared(stageId);
                     }
                     break;
             }

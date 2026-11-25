@@ -1,0 +1,38 @@
+[
+  {
+    "file": "hero_A_pixelengine_48.png",
+    "asset_id": "97923041-8678-464e-a9b5-a4290774abcf",
+    "sha12": "5fa9dc15a1ed",
+    "label": "hero option A Darkrise-like 48px, pixel-engine-image-v1"
+  },
+  {
+    "file": "hero_B_darkfantasy_80.png",
+    "asset_id": "0e134b3f-cecf-45a7-adda-431fdb30baa4",
+    "sha12": "eace17dfefe1",
+    "label": "hero option B dark fantasy 80px, pixel-engine-image-v1"
+  },
+  {
+    "file": "hero_C_anime_120.png",
+    "asset_id": "5d6f15d7-ed47-4213-9bd2-1dc0d27a6163",
+    "sha12": "87b61820b063",
+    "label": "hero option C anime ARPG 120px, gpt-image-2 low"
+  },
+  {
+    "file": "hero_D_chibi_40.png",
+    "asset_id": "a03f24c2-99a8-4871-8f61-6d2d0f062de1",
+    "sha12": "07d44b5a910e",
+    "label": "hero option D chibi 40px, pixel-engine-image-v1"
+  },
+  {
+    "file": "hero_A_fixed.png",
+    "asset_id": "914a282d-a155-4760-8bc9-ff6c9420fa01",
+    "sha12": "e93e2de0b796",
+    "label": "hero A chosen, pommel behind arm removed (canonical base)"
+  },
+  {
+    "file": "hero_A_attack.webp",
+    "asset_id": "f1fda9ec-037e-4b95-9fd1-be838100d95e",
+    "sha12": "318f12d0e4f4",
+    "label": "hero A attack 8f 92x92, pixel-engine animate"
+  }
+]

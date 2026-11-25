@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Uncrowned.UI
 {
-    /// <summary>uGUI HUD built in code: health, Valor pips, ability cooldowns, wave counter.</summary>
+    /// <summary>uGUI HUD built in code: health, mana, ability buttons with cooldowns, stage progress.</summary>
     public class Hud : MonoBehaviour
     {
         public Health player;
@@ -17,7 +17,9 @@ namespace Uncrowned.UI
         Font font;
         Image hpFill;
         Text hpText;
-        Image[] pips;
+        Image manaFill;
+        Text manaText;
+        Image[] icons;
         Image[] cdOverlays;
         Text[] cdTexts;
         Text waveText;
@@ -25,11 +27,11 @@ namespace Uncrowned.UI
         Image warCryGlow;
 
         static readonly Ability[] Slots = { Ability.Combo, Ability.Dash, Ability.WideSwing, Ability.WarCry, Ability.Ultimate };
-        static readonly string[] Keys = { "ЛКМ", "Shift", "ПКМ", "Q", "R" };
+        static readonly string[] Keys = { "LMB", "Shift", "RMB", "Q", "R" };
 
         Image bossBar;
         GameObject bossBarRoot;
-        static readonly string[] Names = { "Серия", "Рывок", "Взмах", "Клич", "Суд короны" };
+        static readonly string[] Names = { "Sword Chain", "Dash", "Sweeping Arc", "War Cry", "Crown's Judgement" };
 
         void Start()
         {
@@ -46,53 +48,73 @@ namespace Uncrowned.UI
             var root = canvasGo.transform;
 
             // Health bar
-            var hpBg = MakeImage(root, "HP Bg", new Color(0.1f, 0.05f, 0.05f, 0.85f), new Vector2(0.5f, 0), new Vector2(0, 150), new Vector2(520, 30));
+            var hpBg = MakeImage(root, "HP Bg", new Color(0.1f, 0.05f, 0.05f, 0.85f), new Vector2(0, 0), new Vector2(330, 92), new Vector2(520, 30));
             hpFill = MakeImage(hpBg.transform, "HP Fill", new Color(0.8f, 0.15f, 0.15f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(512, 22));
             hpFill.type = Image.Type.Filled;
             hpFill.fillMethod = Image.FillMethod.Horizontal;
             hpText = MakeText(hpBg.transform, "HP Text", 20, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(512, 30));
 
-            // Valor pips
-            int max = combat.Valor.max;
-            pips = new Image[max];
-            float pipW = 44, gap = 8;
-            float startX = -(max - 1) * (pipW + gap) * 0.5f;
-            for (int i = 0; i < max; i++)
-                pips[i] = MakeImage(root, "Valor " + i, Color.gray, new Vector2(0.5f, 0), new Vector2(startX + i * (pipW + gap), 118), new Vector2(pipW, 14));
+            // Mana bar
+            var manaBg = MakeImage(root, "Mana Bg", new Color(0.04f, 0.05f, 0.12f, 0.85f), new Vector2(0, 0), new Vector2(330, 58), new Vector2(520, 24));
+            manaFill = MakeImage(manaBg.transform, "Mana Fill", new Color(0.2f, 0.45f, 0.95f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(512, 16));
+            manaFill.type = Image.Type.Filled;
+            manaFill.fillMethod = Image.FillMethod.Horizontal;
+            manaText = MakeText(manaBg.transform, "Mana Text", 16, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(512, 24));
 
-            // Ability slots
+            // Round ability buttons: disc body, pixel icon, radial cooldown sweep, border ring, key label.
+            icons = new Image[Slots.Length];
             cdOverlays = new Image[Slots.Length];
             cdTexts = new Text[Slots.Length];
-            float slot = 86, sgap = 14;
-            float sx = -(Slots.Length - 1) * (slot + sgap) * 0.5f;
+            const float size = 100f, ultSize = 124f, sgap = 24f;
+            float total = 0;
+            foreach (var s in Slots) total += (s == Ability.Ultimate ? ultSize : size) + sgap;
+            float x = -(total - sgap) - 50f; // right-aligned, 50px from the edge
             for (int i = 0; i < Slots.Length; i++)
             {
                 bool ult = Slots[i] == Ability.Ultimate;
-                var bg = MakeImage(root, "Slot " + Names[i], ult ? new Color(0.35f, 0.25f, 0.05f, 0.95f) : new Color(0.15f, 0.15f, 0.2f, 0.95f),
-                    new Vector2(0.5f, 0), new Vector2(sx + i * (slot + sgap), 55), new Vector2(slot, slot * 0.7f));
-                MakeText(bg.transform, "Name", 15, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 8), new Vector2(slot, 24)).text = Names[i];
-                MakeText(bg.transform, "Key", 13, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, -14), new Vector2(slot, 20)).text = Keys[i];
-                var ov = MakeImage(bg.transform, "Cooldown", new Color(0, 0, 0, 0.7f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(slot, slot * 0.7f));
+                float d = ult ? ultSize : size;
+                x += d * 0.5f;
+                var btn = MakeImage(root, "Button " + Names[i], ult ? new Color(0.3f, 0.2f, 0.05f, 0.95f) : new Color(0.13f, 0.13f, 0.18f, 0.95f),
+                    new Vector2(1, 0), new Vector2(x, 92), new Vector2(d, d));
+                btn.sprite = IconFactory.Disc;
+
+                var icon = MakeImage(btn.transform, "Icon", Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(d * 0.66f, d * 0.66f));
+                icon.sprite = IconFactory.Icon(Slots[i]);
+                icons[i] = icon;
+
+                var ov = MakeImage(btn.transform, "Cooldown", new Color(0, 0, 0, 0.72f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(d, d));
+                ov.sprite = IconFactory.Disc;
                 ov.type = Image.Type.Filled;
-                ov.fillMethod = Image.FillMethod.Vertical;
-                ov.fillOrigin = (int)Image.OriginVertical.Top;
+                ov.fillMethod = Image.FillMethod.Radial360;
+                ov.fillOrigin = (int)Image.Origin360.Top;
+                ov.fillClockwise = false;
                 cdOverlays[i] = ov;
-                cdTexts[i] = MakeText(bg.transform, "CD", 26, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(slot, slot * 0.7f));
+
+                var ring = MakeImage(btn.transform, "Ring", ult ? new Color(1f, 0.8f, 0.25f) : new Color(0.55f, 0.6f, 0.75f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(d, d));
+                ring.sprite = IconFactory.RingSprite;
+
+                cdTexts[i] = MakeText(btn.transform, "CD", ult ? 36 : 30, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(d, d));
+                cdTexts[i].fontStyle = FontStyle.Bold;
+
+                var keyBg = MakeImage(btn.transform, "KeyBg", new Color(0.05f, 0.05f, 0.08f, 0.9f), new Vector2(0.5f, 0.5f), new Vector2(0, -d * 0.5f + 2), new Vector2(64, 24));
+                MakeText(keyBg.transform, "Key", 16, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64, 24)).text = Keys[i];
+
+                x += d * 0.5f + sgap;
             }
 
-            warCryGlow = MakeImage(root, "WarCry", new Color(1f, 0.4f, 0.2f, 0f), new Vector2(0.5f, 0), new Vector2(0, 118), new Vector2(560, 22));
+            warCryGlow = MakeImage(root, "WarCry", new Color(1f, 0.4f, 0.2f, 0f), new Vector2(0, 0), new Vector2(330, 75), new Vector2(548, 76));
             warCryGlow.transform.SetSiblingIndex(0);
 
             waveText = MakeText(root, "Wave", 30, TextAnchor.UpperCenter, new Vector2(0.5f, 1), new Vector2(0, -50), new Vector2(600, 40));
             var help = MakeText(root, "Help", 18, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(240, -130), new Vector2(420, 200));
-            help.text = "A / D — ходьба, Space — прыжок\nЛКМ — серия ударов (3-й мощный)\nПКМ — взмах в обе стороны\nShift — рывок вперёд\nQ — боевой клич (Доблесть не сгорает)\nR — Суд короны (тратит всю Доблесть)";
+            help.text = "A / D - move,  Space - jump,  Mouse - aim\nLMB - Sword Chain toward the cursor (3rd hit is heavy)\nRMB - Sweeping Arc, hits both sides\nShift - Dash left / right (toward the cursor)\nQ - War Cry: +20% damage and attack speed\nR - Crown's Judgement: launch, then slam\nEsc - World Map";
 
             // Boss health bar, shown during the boss fight.
             var bossBg = MakeImage(root, "Boss Bg", new Color(0.1f, 0.05f, 0.1f, 0.85f), new Vector2(0.5f, 1), new Vector2(0, -110), new Vector2(820, 26));
             bossBar = MakeImage(bossBg.transform, "Boss Fill", new Color(0.6f, 0.2f, 0.7f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(812, 18));
             bossBar.type = Image.Type.Filled;
             bossBar.fillMethod = Image.FillMethod.Horizontal;
-            MakeText(bossBg.transform, "Boss Name", 20, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 28), new Vector2(820, 30)).text = "Павший король";
+            MakeText(bossBg.transform, "Boss Name", 20, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 28), new Vector2(820, 30)).text = stage.bossName;
             bossBarRoot = bossBg.gameObject;
             help.color = new Color(1, 1, 1, 0.6f);
             centerText = MakeText(root, "Center", 44, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0, 80), new Vector2(1000, 120));
@@ -105,20 +127,15 @@ namespace Uncrowned.UI
             hpFill.fillAmount = player.Current / player.max;
             hpText.text = $"{Mathf.CeilToInt(player.Current)} / {player.max}";
 
-            var valor = combat.Valor;
-            bool full = valor.IsFull;
-            float pulse = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 10f);
-            for (int i = 0; i < pips.Length; i++)
-            {
-                bool on = i < valor.Charges;
-                pips[i].color = !on ? new Color(0.2f, 0.2f, 0.25f, 0.9f)
-                    : full ? new Color(1f, 0.85f, 0.2f) * pulse
-                    : new Color(0.95f, 0.75f, 0.3f);
-            }
+            var mana = combat.Mana;
+            manaFill.fillAmount = mana.Current / mana.max;
+            manaText.text = $"{Mathf.FloorToInt(mana.Current)} / {mana.max}";
             warCryGlow.color = new Color(1f, 0.4f, 0.2f, combat.WarCryActive ? 0.45f : 0f);
 
             for (int i = 0; i < Slots.Length; i++)
             {
+                // Not enough mana: icon goes dim blue.
+                icons[i].color = combat.CanAfford(Slots[i]) ? Color.white : new Color(0.35f, 0.45f, 0.9f, 0.55f);
                 cdOverlays[i].fillAmount = combat.CooldownFraction(Slots[i]);
                 float rem = combat.CooldownRemaining(Slots[i]);
                 cdTexts[i].text = rem > 0.05f && Slots[i] != Ability.Combo ? rem.ToString(rem < 1 ? "0.0" : "0") : "";
@@ -130,12 +147,14 @@ namespace Uncrowned.UI
 
             waveText.text = stage.Current switch
             {
-                StageDirector.State.Road => $"Этап {stage.stageName}   ·   {Mathf.RoundToInt(stage.Progress * 100)}%",
-                StageDirector.State.BossFight => $"Этап {stage.stageName}   ·   БОСС",
-                _ => $"Этап {stage.stageName} пройден"
+                StageDirector.State.Road => $"Stage {stage.stageId}   ·   {Mathf.RoundToInt(stage.Progress * 100)}%",
+                StageDirector.State.BossFight => $"Stage {stage.stageId}   ·   BOSS",
+                _ => $"Stage {stage.stageId} cleared"
             };
-            centerText.text = player.IsDead ? "Ты пал\nEnter — заново"
-                : stage.Current == StageDirector.State.Cleared ? "Этап пройден!\nEnter — заново" : "";
+            centerText.text = player.IsDead ? "You have fallen\nEnter - try again    Esc - world map"
+                : stage.Current == StageDirector.State.Cleared
+                    ? (WorldMapData.TownAfter(stage.stageId) is { } town ? "Stage cleared!\nEnter - travel to " + town.title : "Stage cleared!\nEnter - return to the world map")
+                    : "";
         }
 
         Image MakeImage(Transform parent, string name, Color color, Vector2 anchor, Vector2 pos, Vector2 size)

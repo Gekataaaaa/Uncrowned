@@ -57,7 +57,7 @@ namespace Uncrowned.Combat
 
         IEnumerator Flash()
         {
-            body.color = Color.white;
+            body.color = new Color(1f, 0.45f, 0.45f); // red tint works on sprites and flat shapes
             yield return new WaitForSeconds(0.07f);
             body.color = baseColor;
             flash = null;

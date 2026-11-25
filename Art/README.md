@@ -21,7 +21,9 @@ Art/
 
 ## InGame/Hero — герой (в игре)
 
-Основа — пак **Little Fantasy Free Knight** (автор Gabry Pixel). Лицензия и источник описаны в `Docs/ThirdParty/LittleFantasyFreeKnight/SOURCE.md`.
+Основа — пак **Little Fantasy - Free Knight** от **Gabry Pixel**: https://gabry-corti.itch.io/freeknight
+Лицензия со страницы пака: *"You can use this asset for personal and commercial purpose."*
+Указывать автора лицензия не требует, но мы указываем. О перераспространении исходных файлов лицензия ничего не говорит.
 Глаза перекрашены в наш стиль: дальний глаз ледяной голубой, ближний багровый.
 
 | Файлы | Что это |
